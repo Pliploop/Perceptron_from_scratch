@@ -53,7 +53,7 @@ class Perceptron:
         return pd.Series(np.sign(temp))
 
 
-    def fit(self,X_train,y_train,X_val=None,y_val=None):
+    def fit(self,X_train,y_train,X_val=None,y_val=None,plot_metrics=True):
         """
         parameters:
             X_train : training data features of size (n_features, n_training_samples)
@@ -64,8 +64,8 @@ class Perceptron:
         n_features = X_train.values.shape[1]
         n_samples_train = X_train.values.shape[0]
         X_train_a = np.ones((n_samples_train,n_features+1))
-        X_train_a[:,1:] = X_train.values
-        X_train_a = np.reshape(X_train_a,(n_samples_train,n_features +1))
+        X_train_a[:,1:]  = X_train.values
+        X_train_a = np.reshape(X_train_a,(n_samples_train,n_features+1))
         
         y_train_a=y_train.values
 
@@ -74,8 +74,8 @@ class Perceptron:
 
 
             X_val_a = np.ones((n_samples_val,n_features+1))
-            X_val_a[:,1:] = X_val.values
-            X_val_a = np.reshape(X_val_a,(n_samples_val,n_features +1))
+            X_val_a[:,1:]  = X_val.values
+            X_val_a = np.reshape(X_val_a,(n_samples_val,n_features+1))
             y_val_a=y_val.values
         
 
@@ -121,11 +121,12 @@ class Perceptron:
             self.weights = self.weights + self.training_step*summed
 
 
-            self.training_accuracy[k]=accuracy_score(pd.Series(y_train_a),self.predict(X_train_a,training=True))
+            self.training_accuracy[k]=self.score(X_train,y_train)
             self.loss[k]=zero_one_loss(pd.Series(y_train_a),self.predict(X_train_a,training=True))
             if X_val is not None:
-                self.val_accuracy[k]=accuracy_score(pd.Series(y_val_a),self.predict(X_val_a,training=True))
-            
+                self.val_accuracy[k]=self.score(X_val,y_val)
+        if plot_metrics :
+            self.plot_metrics()
         return self.weights
     
     
@@ -142,4 +143,17 @@ class Perceptron:
         ax[0].plot(self.val_accuracy,color='b')
         ax[1].plot(self.loss,color='k')
         plt.show()
+
+    def get_decision_boundary(self):
+        a = -(self.weights[0]/self.weights[2])/(self.weights[0]/self.weights[1])  
+        b = -self.weights[0]/self.weights[2]
+        return a,b
+
+    def plot_decision_boundary(self,ax):
+        x1,x2 = ax.get_xlim()
+        a,b = self.get_decision_boundary()
+        x = np.linspace(x1,x2)
+        ax.plot(x,a*x+b)
+
+        
 
