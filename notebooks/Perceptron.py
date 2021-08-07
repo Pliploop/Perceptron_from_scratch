@@ -3,6 +3,8 @@ from numpy.core.defchararray import index
 import pandas as pd
 from tqdm import tqdm
 from sklearn.metrics import accuracy_score,zero_one_loss
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 class Perceptron:
 
@@ -31,7 +33,25 @@ class Perceptron:
         self.training_step = training_step
         self.shuffle = shuffle
         self.weights_list=[]
+
+
+    def predict(self,X,training=False):
+        if not training:
+            if isinstance(X, pd.DataFrame):
+                X_a = X.values
+            else:
+                X_a = X
+            n_samples=X_a.shape[0]
+            n_features= X_a.shape[1]
+            X_a_2 = np.ones((n_samples,n_features+1))
+
+            X_a_2[:,1:] = X_a
+        else:
+            X_a_2 = X
+        temp = np.matmul(X_a_2,self.weights)
         
+        return pd.Series(np.sign(temp))
+
 
     def fit(self,X_train,y_train,X_val=None,y_val=None):
         """
@@ -72,15 +92,31 @@ class Perceptron:
         for k in tqdm(range(self.n_epochs)):
             self.weights_list.append(self.weights)
             
+            to_sum = np.zeros(X_train_a.shape)
+            summed_test = np.zeros(n_features+1)
+
+            # print(y_train_a.shape)
+            # print(X_train_a.shape)
+            # print(X_train_a[1].shape)
+
+            for sample in range(n_samples_train):
+                
+                if y_train_a[sample]*np.inner(self.weights,X_train_a[sample])<0:
+                    summed_test += y_train_a[sample]*X_train_a[sample]
+            
+
+
+
+            
+
             index_function = pd.Series(np.matmul(X_train_a,self.weights)*y_train).apply(lambda x:0 if x>=0 else 1).to_numpy()
+            vector = index_function*y_train_a
+            for i in range(n_samples_train):
+                to_sum[i] = X_train_a[i]*vector[i]
             
-            
-            test = np.reshape(X_train_a,(n_features+1,n_samples_train))
-            test2 = test*y_train_a
-            to_sum = test2*index_function
-            
-            summed = to_sum.sum(axis=1)
-            
+
+            summed = to_sum.sum(axis=0)
+            # print(summed_test==summed)
 
             self.weights = self.weights + self.training_step*summed
 
@@ -92,25 +128,18 @@ class Perceptron:
             
         return self.weights
     
-    def predict(self,X,training=False):
-        if not training:
-            if isinstance(X, pd.DataFrame):
-                X_a = X.values
-            else:
-                X_a = X
-            n_samples=X_a.shape[0]
-            n_features= X_a.shape[1]
-            X_a_2 = np.ones((n_samples,n_features+1))
-
-            X_a_2[:,1:] = X_a
-        else:
-            X_a_2 = X
-        temp = np.matmul(X_a_2,self.weights)
-        # print(temp.shape)
-        return -pd.Series(np.sign(temp))
+    
 
     def get_metrics(self):
         return self.training_accuracy,self.loss,self.val_accuracy
 
     def score(self,X,y):
         return accuracy_score(self.predict(X),y)
+
+    def plot_metrics(self):
+        fig,ax=plt.subplots(1,3,figsize=(15,5))
+        ax[0].plot(self.training_accuracy,color='r')
+        ax[0].plot(self.val_accuracy,color='b')
+        ax[1].plot(self.loss,color='k')
+        plt.show()
+
