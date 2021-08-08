@@ -8,7 +8,7 @@ import seaborn as sns
 
 class Perceptron:
 
-    def __init__(self,n_epochs,early_stop=True,n_early_stop=10,training_step=1,shuffle=True):
+    def __init__(self,n_epochs,early_stop=True,n_early_stop=10,training_step=1,shuffle=True,adaline=False):
         """
         paramet
         
@@ -16,15 +16,15 @@ class Perceptron:
 
 
         self.n_epochs=n_epochs
-        self.loss=np.empty(n_epochs)
+        self.loss=np.zeros(n_epochs)
 
-        self.val_accuracy=np.empty(n_epochs)
-        self.val_recall = np.empty(n_epochs)
-        self.val_f1_score = np.empty(n_epochs)
+        self.val_accuracy=np.zeros(n_epochs)
+        self.val_recall = np.zeros(n_epochs)
+        self.val_f1_score = np.zeros(n_epochs)
         
-        self.training_accuracy=np.empty(n_epochs)
-        self.training_recall = np.empty(n_epochs)
-        self.training_f1_score = np.empty(n_epochs)
+        self.training_accuracy=np.zeros(n_epochs)
+        self.training_recall = np.zeros(n_epochs)
+        self.training_f1_score = np.zeros(n_epochs)
 
 
 
@@ -33,6 +33,7 @@ class Perceptron:
         self.training_step = training_step
         self.shuffle = shuffle
         self.weights_list=[]
+        self.adaline = adaline
 
 
     def predict(self,X,training=False):
@@ -78,14 +79,14 @@ class Perceptron:
             X_val_a = np.reshape(X_val_a,(n_samples_val,n_features+1))
             y_val_a=y_val.values
         
-
         
         
 
 
         #initialize weights according to n_features:
-        self.weights = np.random.rand(n_features+1)
-
+        
+        self.weights = (np.random.rand(n_features+1)*2-1)/1000000
+        
 
         #we now have initialized weights and feature values. Training is just iterating over the epochs and over the samples
 
@@ -99,32 +100,27 @@ class Perceptron:
             # print(X_train_a.shape)
             # print(X_train_a[1].shape)
 
-            for sample in range(n_samples_train):
-                
-                if y_train_a[sample]*np.inner(self.weights,X_train_a[sample])<0:
-                    summed_test += y_train_a[sample]*X_train_a[sample]
-            
+            if not self.adaline:
+                index_function = pd.Series(np.matmul(X_train_a,self.weights)*y_train).apply(lambda x:0 if x>=0 else 1).to_numpy()
+                vector = index_function*y_train_a
+                for i in range(n_samples_train):
+                    to_sum[i] = X_train_a[i]*vector[i]
+                summed = to_sum.sum(axis=0)
+                self.weights = self.weights + self.training_step*summed
 
+            if self.adaline:
+                output = np.matmul(X_train_a[:,1:],self.weights[1:]) + self.weights[0]
+                delta =  y_train_a - output
+                self.weights[1:] += self.training_step * np.matmul(X_train_a[:,1:].T,delta)
+                self.weights[0] += self.training_step * delta.sum()
 
-
-            
-
-            index_function = pd.Series(np.matmul(X_train_a,self.weights)*y_train).apply(lambda x:0 if x>=0 else 1).to_numpy()
-            vector = index_function*y_train_a
-            for i in range(n_samples_train):
-                to_sum[i] = X_train_a[i]*vector[i]
-            
-
-            summed = to_sum.sum(axis=0)
-            # print(summed_test==summed)
-
-            self.weights = self.weights + self.training_step*summed
 
 
             self.training_accuracy[k]=self.score(X_train,y_train)
             self.loss[k]=zero_one_loss(pd.Series(y_train_a),self.predict(X_train_a,training=True))
             if X_val is not None:
                 self.val_accuracy[k]=self.score(X_val,y_val)
+
         if plot_metrics :
             self.plot_metrics()
         return self.weights
@@ -140,7 +136,8 @@ class Perceptron:
     def plot_metrics(self):
         fig,ax=plt.subplots(1,3,figsize=(15,5))
         ax[0].plot(self.training_accuracy,color='r')
-        ax[0].plot(self.val_accuracy,color='b')
+        if not np.all(self.val_accuracy==0):
+            ax[0].plot(self.val_accuracy,color='b')
         ax[1].plot(self.loss,color='k')
         plt.show()
 
